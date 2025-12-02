@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TF — Login</title>
+  <style>
+    /* Visual updates: Arial + color scheme */
+    :root{--primary:#0A2E2A;--accent:#4CA15D;--bg:#f4f6f8;--card:#ffffff;--muted:#6b7280}
+    html,body{height:100%}
+    body{
+      font-family: Arial, Helvetica, sans-serif;
+      line-height:1.4;
+      background:var(--bg);
+      color:var(--primary);
+      padding:28px;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    .card{
+      max-width:420px;
+      margin:40px auto;
+      padding:22px;
+      background:var(--card);
+      border-radius:10px;
+      box-shadow:0 6px 20px rgba(10,46,42,0.06);
+      border:1px solid rgba(10,46,42,0.04);
+    }
+    h1{font-size:18px;margin:0 0 8px;color:var(--primary)}
+    label{display:block;margin-bottom:6px;font-weight:600}
+    input[type=text],input[type=password]{
+      width:100%;
+      padding:10px;
+      border:1px solid #e1e7ec;
+      border-radius:8px;
+      margin-bottom:12px;
+      font-family:inherit;
+      color:var(--primary);
+    }
+    button{
+      background:var(--primary);
+      color:#fff;
+      border:0;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.secondary{
+      background:transparent;
+      color:var(--primary);
+      border:1px solid #e1e7ec;
+    }
+    .small{font-size:13px;color:var(--muted); margin-top:10px}
+    #loginMsg{min-height:18px}
+    .note{font-size:13px;color:#3b4b35;background:#eef7ee;padding:10px;border-radius:6px;margin-bottom:12px;border:1px solid #ddefde}
+    .session-actions{margin-top:12px}
+    .session-actions button{margin-right:8px}
+  </style>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="titulo">
+    <h1 id="titulo">TF — Sistema de Troca de Folgas</h1>
+    <p class="small">Painel de demonstração — use as credenciais demo abaixo ou crie sua sessão.</p>
+
+    <div class="note" aria-live="polite">
+      <strong>Aviso (demo):</strong> credenciais e dados são armazenados localmente no navegador. Não use isto em produção.
+    </div>
+
+    <form id="loginForm" aria-describedby="loginHelp">
+      <label for="username">Usuário</label>
+      <input id="username" name="username" type="text" required autocomplete="username" />
+
+      <label for="password">Senha</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password" />
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button type="submit">Entrar</button>
+      </div>
+
+      <div id="loginMsg" role="status" aria-live="polite"></div>
+
+      <div id="sessionActions" class="session-actions"></div>
+
+      <p id="loginHelp" class="small">Credenciais demo: <strong>admin / adminpass</strong> (acesso admin) ou <strong>alex / userpass</strong> (usuário).</p>
+    </form>
+  </div>
+
+  <script defer>
+  (function(){
+    const CREDENTIALS = [
+      { username: 'admin', password: 'adminpass', role: 'admin', name: 'Administrador' },
+      { username: 'alex', password: 'userpass', role: 'user', name: 'Alex Silva' }
+    ];
+    const AUTH_KEY = 'tf_auth_v1';
+
+    function saveAuth(session){ localStorage.setItem(AUTH_KEY, JSON.stringify(session)); }
+    function clearAuth(){ localStorage.removeItem(AUTH_KEY); }
+    function currentAuth(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)); }catch(e){return null} }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const form = document.getElementById('loginForm');
+      const infoArea = document.getElementById('loginMsg');
+      const sessionActions = document.getElementById('sessionActions');
+
+      function showMsg(msg, color='var(--primary)'){
+        infoArea.textContent = msg;
+        infoArea.style.color = color === 'var(--primary)' ? getComputedStyle(document.documentElement).getPropertyValue('--primary') : color;
+      }
+
+      form.addEventListener('submit', (e)=>{
+        e.preventDefault();
+        showMsg('Validando...', '#4CA15D');
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+
+        const found = CREDENTIALS.find(u => u.username === username && u.password === password);
+        if(!found){
+          showMsg('Usuário ou senha inválidos', '#b33');
+          return;
+        }
+        saveAuth({
+          username: found.username,
+          name: found.name,
+          role: found.role,
+          loggedAt: new Date().toISOString()
+        });
+        showMsg('Autenticado — redirecionando...', '#4CA15D');
+        setTimeout(()=>{
+          window.location.href = found.role === 'admin' ? 'admin.html' : 'user.html';
+        }, 350);
+      });
+
+      // Sessão já ativa? mostra opção de continuar
+      const s = currentAuth();
+      if(s && s.role){
+        const contBtn = document.createElement('button');
+        contBtn.textContent = 'Continuar sessão';
+        contBtn.type = 'button';
+        contBtn.className = 'secondary';
+        contBtn.addEventListener('click', ()=> window.location.href = s.role === 'admin' ? 'admin.html' : 'user.html');
+
+        const logoutBtn = document.createElement('button');
+        logoutBtn.type = 'button';
+        logoutBtn.textContent = 'Encerrar sessão';
+        logoutBtn.className = 'secondary';
+        logoutBtn.addEventListener('click', ()=>{ clearAuth(); showMsg('Sessão encerrada', '#0A2E2A'); sessionActions.innerHTML=''; });
+
+        sessionActions.appendChild(contBtn);
+        sessionActions.appendChild(logoutBtn);
+        const span = document.createElement('div');
+        span.className = 'small';
+        span.style.marginTop = '8px';
+        span.textContent = `Sessão detectada: ${s.name}`;
+        sessionActions.appendChild(span);
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
