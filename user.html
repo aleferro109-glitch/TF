@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TF — Área do Usuário (Expandido)</title>
+  <style>
+    :root{
+      --primary:#0A2E2A;
+      --accent:#4CA15D;
+      --bg:#f6f8fa;
+      --card:#ffffff;
+      --muted:#52606a;
+      --shadow: rgba(6,34,28,0.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Arial, Helvetica, sans-serif;background:var(--bg);color:var(--primary);-webkit-font-smoothing:antialiased}
+    .topbar{
+      height:64px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+      box-shadow:0 6px 18px rgba(6,34,28,0.12);
+    }
+    .brand{font-weight:700}
+    .top-right{display:flex;align-items:center;gap:12px}
+    .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(6,34,28,0.06);color:var(--primary)}
+    .layout{display:grid;grid-template-columns:220px 1fr 320px;gap:18px;padding:18px}
+    .sidebar{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 28px var(--shadow)}
+    .nav-item{display:block;padding:10px;border-radius:8px;border:0;background:transparent;text-align:left;cursor:pointer;margin-bottom:8px;color:var(--muted);font-weight:700}
+    .nav-item.active{background:rgba(76,161,93,0.08);color:var(--primary)}
+    .panel{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 8px 24px var(--shadow)}
+    .card{background:var(--card);border-radius:10px;padding:12px;box-shadow:0 6px 16px var(--shadow)}
+    .metric{font-size:22px;font-weight:800;color:var(--primary)}
+    .small{font-size:13px;color:var(--muted)}
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:12px}
+    .cell{background:linear-gradient(180deg,#fff,#fbfffc);border-radius:8px;padding:8px;min-height:86px;border:1px solid rgba(6,34,28,0.04);font-size:13px;color:#23493f;outline:none}
+    .cell:focus{box-shadow:0 0 0 3px rgba(76,161,93,0.16)}
+    .cell .date{font-weight:700;margin-bottom:6px;color:var(--primary)}
+    .list-item{padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.04);margin-bottom:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #eef3f5;text-align:left;color:var(--primary)}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.36);display:flex;align-items:center;justify-content:center;z-index:60}
+    .dialog{background:var(--card);padding:18px;border-radius:12px;min-width:320px;max-width:920px;box-shadow:0 24px 80px rgba(6,34,28,0.24)}
+    .toast{position:fixed;right:18px;bottom:18px;background:var(--primary);color:#eafff0;padding:10px 14px;border-radius:10px;z-index:70}
+    input,select,textarea{padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06);font-family:inherit}
+    .controls{display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted)}
+    .actions{display:flex;gap:8px}
+    .small-btn{padding:6px 8px;border-radius:6px;border:0;cursor:pointer;font-weight:700}
+    .small-btn.danger{background:#b33;color:#fff}
+    .small-btn.ghost{background:transparent;border:1px solid rgba(6,34,28,0.06)}
+    @media (max-width:1100px){
+      .layout{grid-template-columns:1fr; padding:14px}
+      .rightbar{order:3}
+      .sidebar{order:1}
+      main{order:2}
+      .calendar-grid{grid-template-columns:repeat(7,1fr);overflow-x:auto}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" role="banner">
+    <div class="brand">TF — Área do Usuário</div>
+    <div class="top-right">
+      <div id="headerUser" style="font-weight:700">—</div>
+      <button id="logoutBtn" class="btn ghost">Sair</button>
+    </div>
+  </header>
+
+  <div class="layout" role="main">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" aria-label="Navegação">
+      <div style="margin-bottom:12px">
+        <button class="nav-item active" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" data-view="myLeaves">Minhas Folgas</button>
+        <button class="nav-item" data-view="requests">Solicitações</button>
+        <button class="nav-item" data-view="matches">Matches</button>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small">Ações rápidas</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <button id="quickOfferBtn" class="btn">Oferecer folga</button>
+          <button id="quickRequestBtn" class="btn ghost">Criar solicitação</button>
+        </div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="small">Filtro por equipe</div>
+        <select id="teamFilter" style="width:100%;margin-top:8px">
+          <option value="all">Todas</option>
+          <option value="A">Equipe A</option>
+          <option value="B">Equipe B</option>
+        </select>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main>
+      <!-- DASHBOARD -->
+      <section id="dashboard" class="panel" aria-labelledby="dashTitle">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h2 id="dashTitle" style="margin:0">Dashboard</h2>
+            <div class="small">Visão geral — métricas, calendário e listas rápidas</div>
+          </div>
+          <div class="controls">
+            <input id="searchInput" placeholder="Pesquisar por data (YYYY-MM-DD) ou nome" />
+            <button id="searchBtn" class="btn ghost">Pesquisar</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <div class="card" style="flex:1;min-width:180px">
+            <div class="small">Minhas Folgas</div>
+            <div id="myLeavesCount" class="metric">0</div>
+            <div class="muted" style="margin-top:6px">Número de folgas que você ofereceu.</div>
+          </div>
+
+          <div class="card" style="flex:1;min-width:180px">
+            <div class="small">Minhas Solicitações</div>
+            <div id="myRequestsCount" class="metric">0</div>
+            <div class="muted" style="margin-top:6px">Solicitações abertas/fechadas.</div>
+          </div>
+
+          <div class="card" style="flex:1;min-width:180px">
+            <div class="small">Matches</div>
+            <div id="myMatchesCount" class="metric">0</div>
+            <div class="muted" style="margin-top:6px">Oportunidades compatíveis encontradas.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 420px;gap:12px">
+          <!-- left: calendar -->
+          <div class="card" style="padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <strong id="calendarTitle">Calendário — <span id="monthLabel"></span></strong>
+                <div class="small">Clique em um dia para ver detalhes</div>
+              </div>
+              <div>
+                <button id="calPrev" class="btn ghost">←</button>
+                <button id="calNext" class="btn ghost">→</button>
+              </div>
+            </div>
+
+            <div class="calendar-grid" id="calendarGrid" role="grid" aria-live="polite" style="margin-top:12px"></div>
+          </div>
+
+          <!-- right: quick lists -->
+          <div>
+            <div class="card" style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div class="small">Ofertas próximas</div>
+                <div class="small muted"><button id="exportOffers" class="small-btn ghost">Export</button></div>
+              </div>
+              <div id="offersList" style="margin-top:8px;max-height:220px;overflow:auto"></div>
+            </div>
+
+            <div class="card" style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div class="small">Solicitações recentes</div>
+                <div class="small muted"><label for="filterStatus">Status</label>
+                  <select id="filterStatus" style="margin-left:6px">
+                    <option value="all">Todas</option><option value="open">Abertas</option><option value="approved">Aprovadas</option><option value="rejected">Rejeitadas</option>
+                  </select>
+                </div>
+              </div>
+              <div id="requestsList" style="margin-top:8px;max-height:220px;overflow:auto"></div>
+            </div>
+
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div class="small">Meus Matches</div>
+                <div class="small muted"><button id="sortMatches" class="small-btn ghost">Ordenar</button></div>
+              </div>
+              <div id="matchesList" style="margin-top:8px;max-height:300px;overflow:auto"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MINHAS FOLGAS -->
+      <section id="myLeaves" class="panel" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 style="margin:0">Minhas Folgas</h2>
+          <div class="controls">
+            <label class="small">De: <input id="leavesFrom" type="date" /></label>
+            <label class="small">Até: <input id="leavesTo" type="date" /></label>
+            <button id="filterLeavesBtn" class="btn ghost">Filtrar</button>
+            <button id="exportLeaves" class="btn ghost">Exportar</button>
+          </div>
+        </div>
+
+        <div id="myLeavesList" style="margin-top:12px"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <input id="offerDate" type="date" />
+          <button id="offerBtn" class="btn">Oferecer folga</button>
+        </div>
+      </section>
+
+      <!-- SOLICITAÇÕES -->
+      <section id="requests" class="panel" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 style="margin:0">Solicitações</h2>
+          <div class="controls">
+            <input id="requestSearch" placeholder="Pesquisar por data ou nome" />
+            <select id="requestSort">
+              <option value="new">Mais recentes</option>
+              <option value="old">Mais antigas</option>
+              <option value="status">Por status</option>
+            </select>
+            <button id="createReqBtn2" class="btn">Nova solicitação</button>
+          </div>
+        </div>
+
+        <div id="myRequestsList" style="margin-top:12px"></div>
+      </section>
+
+      <!-- MATCHES -->
+      <section id="matches" class="panel" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 style="margin:0">Matches</h2>
+          <div class="controls">
+            <select id="matchFilterTeam"><option value="all">Todas</option><option value="A">A</option><option value="B">B</option></select>
+            <button id="acceptAllMatches" class="btn ghost">Aceitar selecionados</button>
+          </div>
+        </div>
+        <div id="myMatches" style="margin-top:12px"></div>
+      </section>
+    </main>
+
+    <!-- RIGHTBAR -->
+    <aside class="rightbar" style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel card">
+        <h4 style="margin:0 0 8px 0">Resumo</h4>
+        <div id="summary" class="small">Carregando...</div>
+      </div>
+
+      <div class="panel card">
+        <h4 style="margin:0 0 8px 0">Ações rápidas</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="quickDate" type="date" />
+          <div style="display:flex;gap:8px">
+            <button id="quickOffer" class="btn">Oferecer</button>
+            <button id="quickRequest" class="btn ghost">Solicitar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel card">
+        <h4 style="margin:0 0 8px 0">Export / Conta</h4>
+        <div style="display:flex;gap:8px;flex-direction:column">
+          <button id="exportCsv" class="btn ghost">Exportar meus dados (CSV)</button>
+          <button id="logoutSmall" class="btn ghost">Sair</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- modal/toast -->
+  <div id="modalRoot" aria-hidden="true" style="display:none"></div>
+  <div id="toastRoot" aria-live="polite" style="position:fixed;right:18px;bottom:18px;z-index:80"></div>
+
+  <script>
+  /* USER — VERSÃO EXPANDIDA (front-end demo em localStorage)
+     Keys:
+       AUTH_KEY: 'tf_auth_v1'
+       STORAGE_KEY: 'tf_data_v1'
+  */
+  (function(){
+    const AUTH_KEY = 'tf_auth_v1';
+    const STORAGE_KEY = 'tf_data_v1';
+
+    // Utilities
+    function nowISO(){ return new Date().toISOString().split('T')[0]; }
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function currentAuth(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY)); }catch(e){return null} }
+    function requireAuth(){ const a = currentAuth(); if(!a){ location.href='login.html'; return null } return a; }
+    function showToast(msg, timeout=2500){
+      const root = document.getElementById('toastRoot');
+      const t = document.createElement('div'); t.className='toast'; t.textContent = msg; root.appendChild(t);
+      setTimeout(()=> t.remove(), timeout);
+    }
+    function openModal(html){
+      const root = document.getElementById('modalRoot'); root.innerHTML = `<div class="modal-backdrop"><div class="dialog">${html}</div></div>`; root.style.display='block'; root.setAttribute('aria-hidden','false');
+      root.querySelector('.modal-backdrop').addEventListener('click', (e)=>{ if(e.target === e.currentTarget) closeModal(); });
+      return root.querySelector('.dialog');
+    }
+    function closeModal(){ const root=document.getElementById('modalRoot'); root.style.display='none'; root.innerHTML=''; root.setAttribute('aria-hidden','true'); }
+
+    // State
+    function seedDemo(){
+      const demo = {
+        offers: [
+          {id:1,user:'Alex Silva',date:'2025-12-01',team:'A',role:'Operador'},
+          {id:2,user:'Pedro',date:'2025-12-03',team:'B',role:'Operador'},
+          {id:3,user:'Alex Silva',date:'2025-12-08',team:'A',role:'Operador'}
+        ],
+        requests: [
+          {id:101,fromUser:'Alex Silva',dateRequested:'2025-11-20',targetDate:'2025-12-15',status:'open',reason:'Viagem'},
+          {id:102,fromUser:'Maria',dateRequested:'2025-11-03',targetDate:'2025-12-03',status:'approved',reason:'Consulta médica'},
+          {id:103,fromUser:'Rafael',dateRequested:'2025-11-08',targetDate:'2025-12-03',status:'open',reason:'Evento'}
+        ],
+        matches:[
+          {id:201,user:'Alex Silva',date:'2025-12-01',team:'A',role:'Operador',score:95,details:'Match por horário e cargo'},
+          {id:202,user:'João',date:'2025-12-03',team:'B',role:'Operador',score:88,details:'Substituição possível'}
+        ]
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(demo));
+      return demo;
+    }
+    function loadState(){
+      try{ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return seedDemo(); return JSON.parse(raw); } catch(e){ return seedDemo(); }
+    }
+    function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+    let state = loadState();
+    let viewDate = new Date();
+    let matchesSortedAsc = false;
+
+    // Rendering helpers
+    function formatMonth(dt){ return dt.toLocaleString('pt-BR',{month:'long', year:'numeric'}); }
+
+    function renderHeader(){
+      const a = currentAuth();
+      document.getElementById('headerUser').textContent = a ? a.name : 'Usuário';
+      document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.addEventListener('click', (e)=>{
+          document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          const view = e.currentTarget.getAttribute('data-view');
+          showView(view);
+        });
+      });
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        localStorage.removeItem(AUTH_KEY);
+        location.href = 'login.html';
+      });
+      document.getElementById('logoutSmall').addEventListener('click', ()=> document.getElementById('logoutBtn').click());
+    }
+
+    function summarizeFor(userName){
+      return {
+        myLeaves: state.offers.filter(o=> o.user === userName).length,
+        myRequests: state.requests.filter(r=> r.fromUser === userName).length,
+        myMatches: state.matches.filter(m=> m.user === userName).length
+      };
+    }
+
+    // Dashboard render
+    function renderDashboard(){
+      const a = requireAuth(); if(!a) return;
+      const s = summarizeFor(a.name);
+      document.getElementById('myLeavesCount').textContent = s.myLeaves;
+      document.getElementById('myRequestsCount').textContent = s.myRequests;
+      document.getElementById('myMatchesCount').textContent = s.myMatches;
+      document.getElementById('summary').textContent = `Minhas folgas: ${s.myLeaves} • Solicitações: ${s.myRequests} • Matches: ${s.myMatches}`;
+      renderOffersList(); renderRequestsList(); renderMatchesList();
+      renderCalendar();
+    }
+
+    function renderOffersList(){
+      const wrap = document.getElementById('offersList'); wrap.innerHTML = '';
+      const next = state.offers.slice().sort((a,b)=> a.date.localeCompare(b.date)).slice(0,8);
+      if(!next.length){ wrap.innerHTML = '<div class="small">Nenhuma oferta próxima.</div>'; return; }
+      next.forEach(o=>{
+        const d = document.createElement('div'); d.className='list-item';
+        d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${o.date}</strong><div class="small">${o.user} • ${o.team}</div></div><div><button class="small-btn ghost" data-id="${o.id}" data-action="view-offer">Ver</button></div></div>`;
+        wrap.appendChild(d);
+      });
+      // view buttons
+      wrap.querySelectorAll('button[data-action="view-offer"]').forEach(b => b.addEventListener('click', (e)=> {
+        const id = Number(e.currentTarget.dataset.id);
+        const o = state.offers.find(x=>x.id===id);
+        if(!o) return;
+        const html = `<h3>Oferta — ${o.date}</h3><div style="margin-top:8px"><div><strong>${o.user}</strong></div><div class="small">${o.team} • ${o.role}</div></div><div style="margin-top:12px;text-align:right"><button id="closeO" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeO').addEventListener('click', closeModal);
+      }));
+    }
+
+    function renderRequestsList(){
+      const wrap = document.getElementById('requestsList'); wrap.innerHTML = '';
+      const statusFilter = document.getElementById('filterStatus')?.value || 'all';
+      const recent = state.requests.slice().sort((a,b)=> b.dateRequested.localeCompare(a.dateRequested)).filter(r => statusFilter === 'all' ? true : r.status === statusFilter).slice(0,8);
+      if(!recent.length){ wrap.innerHTML = '<div class="small">Nenhuma solicitação recente.</div>'; return; }
+      recent.forEach(r=>{
+        const d = document.createElement('div'); d.className='list-item';
+        d.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${r.targetDate}</strong><div class="small">${r.fromUser} • ${r.status}</div></div>
+          <div style="display:flex;gap:6px">
+            <button class="small-btn" data-id="${r.id}" data-action="view-req">Ver</button>
+            ${ (currentAuth() && currentAuth().name === r.fromUser) ? `<button class="small-btn danger" data-id="${r.id}" data-action="cancel-req">Cancelar</button>` : '' }
+          </div></div>`;
+        wrap.appendChild(d);
+      });
+
+      // wiring
+      wrap.querySelectorAll('button[data-action="view-req"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id); const r = state.requests.find(x=>x.id===id);
+        if(!r) return;
+        const html = `<h3>Solicitação — ${r.targetDate}</h3><div style="margin-top:8px"><div><strong>${r.fromUser}</strong></div><div class="small">${r.dateRequested} • ${r.status}</div><div style="margin-top:8px">${r.reason || ''}</div></div>
+          <div style="margin-top:12px;text-align:right">${ r.status === 'open' ? `<button id="approveReq" class="btn">Solicitar troca</button> ` : '' }<button id="closeReq" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeReq').addEventListener('click', closeModal);
+        if(dlg.querySelector('#approveReq')) dlg.querySelector('#approveReq').addEventListener('click', ()=>{ showToast('Ação de troca (demo)'); closeModal(); });
+      }));
+      wrap.querySelectorAll('button[data-action="cancel-req"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id);
+        if(!confirm('Cancelar esta solicitação?')) return;
+        state.requests = state.requests.filter(x=> x.id !== id); saveState(state); renderRequestsList(); renderDashboard(); showToast('Solicitação cancelada');
+      }));
+    }
+
+    function renderMatchesList(){
+      const wrap = document.getElementById('matchesList'); wrap.innerHTML = '';
+      let items = state.matches.slice();
+      const teamFilter = document.getElementById('matchFilterTeam')?.value || 'all';
+      if(teamFilter !== 'all') items = items.filter(m => m.team === teamFilter);
+      items = items.sort((a,b)=> matchesSortedAsc ? a.score - b.score : b.score - a.score);
+      if(!items.length){ wrap.innerHTML = '<div class="small">Nenhum match.</div>'; return; }
+      items.forEach(m=>{
+        const el = document.createElement('div'); el.className='list-item';
+        el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${m.date}</strong><div class="small">${m.user} • ${m.team} • score ${m.score}</div></div><div><button class="small-btn" data-id="${m.id}" data-action="view-match">Ver</button></div></div>`;
+        wrap.appendChild(el);
+      });
+      wrap.querySelectorAll('button[data-action="view-match"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id); const m = state.matches.find(x=>x.id===id);
+        const html = `<h3>Match — ${m.date}</h3><div style="margin-top:8px"><div><strong>${m.user}</strong></div><div class="small">${m.team} • ${m.role}</div><div style="margin-top:8px">${m.details || ''}</div></div>
+          <div style="margin-top:12px;text-align:right"><button id="acceptMatch" class="btn">Aceitar (demo)</button> <button id="closeM" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeM').addEventListener('click', closeModal);
+        dlg.querySelector('#acceptMatch').addEventListener('click', ()=>{
+          showToast('Match aceito (demo)'); closeModal();
+        });
+      }));
+    }
+
+    // Calendar
+    function renderCalendar(){
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+      const year = viewDate.getFullYear(), month = viewDate.getMonth();
+      document.getElementById('monthLabel').textContent = formatMonth(viewDate);
+      const firstDay = new Date(year, month, 1);
+      const startWeekDay = firstDay.getDay();
+      const days = new Date(year, month+1, 0).getDate();
+      for(let i=0;i<startWeekDay;i++){ const e=document.createElement('div'); e.className='cell'; e.setAttribute('aria-hidden','true'); grid.appendChild(e); }
+      const teamFilter = document.getElementById('teamFilter').value;
+      for(let d=1; d<=days; d++){
+        const dateStr = `${year}-${pad(month+1)}-${pad(d)}`;
+        const cell = document.createElement('div'); cell.className='cell'; cell.tabIndex = 0;
+        const dateLabel = document.createElement('div'); dateLabel.className='date'; dateLabel.textContent = d;
+        cell.appendChild(dateLabel);
+
+        const offers = state.offers.filter(o => o.date === dateStr && (teamFilter === 'all' || o.team === teamFilter));
+        const reqs = state.requests.filter(r => r.targetDate === dateStr && (teamFilter === 'all' || !r.team || r.team === teamFilter));
+
+        offers.slice(0,3).forEach(o => {
+          const el = document.createElement('div'); el.style.fontSize='12px'; el.textContent = `O: ${o.user}`; cell.appendChild(el);
+        });
+        reqs.slice(0,3).forEach(r => {
+          const el = document.createElement('div'); el.style.fontSize='12px'; el.textContent = `R: ${r.fromUser} • ${r.status}`; cell.appendChild(el);
+        });
+
+        cell.addEventListener('click', ()=> openDayModal(dateStr));
+        cell.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' ') openDayModal(dateStr); });
+
+        grid.appendChild(cell);
+      }
+    }
+
+    function openDayModal(dateStr){
+      const offers = state.offers.filter(o=> o.date === dateStr);
+      const reqs = state.requests.filter(r=> r.targetDate === dateStr);
+      let html = `<h3>Detalhes — ${dateStr}</h3><div style="margin-top:8px">`;
+      if(offers.length){
+        html += `<strong>Ofertas</strong><div style="margin-top:6px">`;
+        offers.forEach(o => html += `<div style="padding:6px 0">${o.user} • ${o.team} ${o.role ? '• ' + o.role : ''}</div>`);
+        html += `</div>`;
+      }
+      if(reqs.length){
+        html += `<strong style="margin-top:8px;display:block">Solicitações</strong><div style="margin-top:6px">`;
+        reqs.forEach(r => html += `<div style="padding:6px 0">${r.fromUser} • ${r.status}${r.reason ? ' • ' + r.reason : ''}</div>`);
+        html += `</div>`;
+      }
+      if(!offers.length && !reqs.length) html += 'Nenhuma atividade neste dia.';
+      html += `</div><div style="margin-top:12px;text-align:right"><button id="closeModal" class="btn ghost">Fechar</button></div>`;
+      const dlg = openModal(html);
+      dlg.querySelector('#closeModal').addEventListener('click', closeModal);
+    }
+
+    // CRUD: offers & requests
+    function isValidDate(s){ return !Number.isNaN(Date.parse(s)); }
+
+    function offerFolga(dateStr){
+      const a = requireAuth(); if(!a) return;
+      if(!dateStr || !isValidDate(dateStr)){ showToast('Data inválida'); return; }
+      const id = Date.now();
+      state.offers.push({id,user:a.name,date:dateStr,team:document.getElementById('teamFilter').value || 'A',role:'Operador'});
+      saveState(state); renderDashboard(); showToast('Folga oferecida');
+    }
+
+    function createRequest(dateStr, reason){
+      const a = requireAuth(); if(!a) return;
+      if(!dateStr || !isValidDate(dateStr)){ showToast('Data inválida'); return; }
+      const id = Date.now();
+      state.requests.push({id,fromUser:a.name,dateRequested: nowISO(),targetDate:dateStr,status:'open',reason: reason || ''});
+      saveState(state); renderDashboard(); showToast('Solicitação criada');
+    }
+
+    // Exports
+    function exportMyCSV(){
+      const a = requireAuth(); if(!a) return;
+      const rows = [];
+      state.offers.filter(o=> o.user === a.name).forEach(o => rows.push({type:'offer', user:o.user, date:o.date, team:o.team, role:o.role}));
+      state.requests.filter(r=> r.fromUser === a.name).forEach(r => rows.push({type:'request', user:r.fromUser, date:r.targetDate, status:r.status}));
+      if(!rows.length){ showToast('Nenhum dado para exportar'); return; }
+      const keys = Object.keys(rows[0]);
+      const lines = [keys.join(',')].concat(rows.map(r => keys.map(k => `"${String(r[k]||'').replace(/"/g,'""')}"`).join(',')));
+      const csv = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const aEl = document.createElement('a'); aEl.href = url; aEl.download = `tf_mydata_${nowISO()}.csv`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); URL.revokeObjectURL(url);
+    }
+
+    // Views
+    function showView(view){
+      document.getElementById('dashboard').style.display = view === 'dashboard' ? 'block' : 'none';
+      document.getElementById('myLeaves').style.display = view === 'myLeaves' ? 'block' : 'none';
+      document.getElementById('requests').style.display = view === 'requests' ? 'block' : 'none';
+      document.getElementById('matches').style.display = view === 'matches' ? 'block' : 'none';
+      if(view === 'dashboard') renderDashboard();
+      if(view === 'myLeaves') { renderMyLeaves(); }
+      if(view === 'requests') { renderMyRequests(); }
+      if(view === 'matches') { renderMyMatches(); }
+    }
+
+    // My Leaves view
+    function renderMyLeaves(){
+      const a = requireAuth(); if(!a) return;
+      const wrap = document.getElementById('myLeavesList'); wrap.innerHTML = '';
+      let items = state.offers.filter(o=> o.user === a.name);
+      const from = document.getElementById('leavesFrom').value;
+      const to = document.getElementById('leavesTo').value;
+      if(from) items = items.filter(x => x.date >= from);
+      if(to) items = items.filter(x => x.date <= to);
+      items = items.sort((a,b)=> a.date.localeCompare(b.date));
+      if(!items.length){ wrap.innerHTML = '<div class="small">Nenhuma folga sua registrada.</div>'; return; }
+      items.forEach(o=>{
+        const el = document.createElement('div'); el.className = 'list-item';
+        el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${o.date}</strong><div class="small">${o.team} • ${o.role}</div></div>
+          <div style="display:flex;gap:8px"><button class="small-btn" data-id="${o.id}" data-action="edit-offer">Editar</button><button class="small-btn danger" data-id="${o.id}" data-action="remove-offer">Remover</button></div></div>`;
+        wrap.appendChild(el);
+      });
+      // wire actions
+      wrap.querySelectorAll('button[data-action="remove-offer"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id);
+        if(!confirm('Remover esta oferta?')) return;
+        state.offers = state.offers.filter(x=> x.id !== id); saveState(state); renderMyLeaves(); renderDashboard(); showToast('Oferta removida');
+      }));
+      wrap.querySelectorAll('button[data-action="edit-offer"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id); const o = state.offers.find(x=>x.id===id);
+        const html = `<h3>Editar oferta — ${o.date}</h3>
+          <div style="margin-top:8px"><label class="small">Data: <input id="editDate" type="date" value="${o.date}" /></label><label class="small" style="margin-top:8px">Equipe: <select id="editTeam"><option value="A">A</option><option value="B">B</option></select></label></div>
+          <div style="margin-top:12px;text-align:right"><button id="saveEdit" class="btn">Salvar</button> <button id="closeE" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html); dlg.querySelector('#editTeam').value = o.team;
+        dlg.querySelector('#closeE').addEventListener('click', closeModal);
+        dlg.querySelector('#saveEdit').addEventListener('click', ()=>{
+          const newDate = dlg.querySelector('#editDate').value; const newTeam = dlg.querySelector('#editTeam').value;
+          if(!isValidDate(newDate)){ alert('Data inválida'); return; }
+          o.date = newDate; o.team = newTeam; saveState(state); renderMyLeaves(); renderDashboard(); closeModal(); showToast('Oferta atualizada');
+        });
+      }));
+    }
+
+    // My Requests view
+    function renderMyRequests(){
+      const a = requireAuth(); if(!a) return;
+      const wrap = document.getElementById('myRequestsList'); wrap.innerHTML = '';
+      let items = state.requests.filter(r=> r.fromUser === a.name);
+      const q = document.getElementById('requestSearch').value.trim().toLowerCase();
+      const sort = document.getElementById('requestSort').value;
+      if(q) items = items.filter(r=> r.targetDate.includes(q) || r.fromUser.toLowerCase().includes(q));
+      if(sort === 'new') items = items.sort((a,b)=> b.dateRequested.localeCompare(a.dateRequested));
+      if(sort === 'old') items = items.sort((a,b)=> a.dateRequested.localeCompare(b.dateRequested));
+      if(sort === 'status') items = items.sort((a,b)=> a.status.localeCompare(b.status));
+      if(!items.length){ wrap.innerHTML = '<div class="small">Nenhuma solicitação sua.</div>'; return; }
+      items.forEach(r=>{
+        const el = document.createElement('div'); el.className='list-item';
+        el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${r.targetDate}</strong><div class="small">${r.dateRequested} • ${r.status}</div><div class="small">${r.reason || ''}</div></div>
+          <div style="display:flex;gap:8px"><button class="small-btn" data-id="${r.id}" data-action="edit-req">Editar</button><button class="small-btn danger" data-id="${r.id}" data-action="cancel-req">Cancelar</button></div></div>`;
+        wrap.appendChild(el);
+      });
+      // actions
+      wrap.querySelectorAll('button[data-action="cancel-req"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id);
+        if(!confirm('Cancelar esta solicitação?')) return;
+        state.requests = state.requests.filter(x=> x.id !== id); saveState(state); renderMyRequests(); renderDashboard(); showToast('Solicitação cancelada');
+      }));
+      wrap.querySelectorAll('button[data-action="edit-req"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id); const r = state.requests.find(x=>x.id===id);
+        const html = `<h3>Editar solicitação — ${r.targetDate}</h3><div style="margin-top:8px"><label class="small">Data solicitada: <input id="editReqDate" type="date" value="${r.targetDate}" /></label><label class="small" style="margin-top:8px">Motivo:<textarea id="editReqReason" rows="3" style="width:100%">${r.reason||''}</textarea></label></div><div style="margin-top:12px;text-align:right"><button id="saveReq" class="btn">Salvar</button> <button id="closeReq" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeReq').addEventListener('click', closeModal);
+        dlg.querySelector('#saveReq').addEventListener('click', ()=>{
+          const nd = dlg.querySelector('#editReqDate').value; const nr = dlg.querySelector('#editReqReason').value;
+          if(!isValidDate(nd)){ alert('Data inválida'); return; }
+          r.targetDate = nd; r.reason = nr; saveState(state); renderMyRequests(); renderDashboard(); closeModal(); showToast('Solicitação atualizada');
+        });
+      }));
+    }
+
+    // My Matches view
+    function renderMyMatches(){
+      const a = requireAuth(); if(!a) return;
+      const wrap = document.getElementById('myMatches'); wrap.innerHTML = '';
+      let items = state.matches.filter(m=> m.user === a.name || m.user.toLowerCase().includes(a.name.toLowerCase()));
+      const teamFilter = document.getElementById('matchFilterTeam').value;
+      if(teamFilter !== 'all') items = items.filter(m => m.team === teamFilter);
+      items = items.sort((a,b)=> matchesSortedAsc ? a.score - b.score : b.score - a.score);
+      if(!items.length){ wrap.innerHTML = '<div class="small">Nenhum match encontrado.</div>'; return; }
+      items.forEach(m=>{
+        const el = document.createElement('div'); el.className='list-item';
+        el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${m.date}</strong><div class="small">${m.team} • score ${m.score}</div><div class="small">${m.details || ''}</div></div><div><button class="small-btn" data-id="${m.id}" data-action="view-match">Ver</button></div></div>`;
+        wrap.appendChild(el);
+      });
+      wrap.querySelectorAll('button[data-action="view-match"]').forEach(b => b.addEventListener('click', (e)=>{
+        const id = Number(e.currentTarget.dataset.id); const m = state.matches.find(x=>x.id===id);
+        const html = `<h3>Match — ${m.date}</h3><div style="margin-top:8px"><div><strong>${m.user}</strong></div><div class="small">${m.team} • ${m.role}</div><div style="margin-top:8px">${m.details || ''}</div></div><div style="margin-top:12px;text-align:right"><button id="acceptM" class="btn">Aceitar</button> <button id="closeM" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeM').addEventListener('click', closeModal);
+        dlg.querySelector('#acceptM').addEventListener('click', ()=>{ showToast('Match aceito (demo)'); closeModal(); });
+      }));
+    }
+
+    // Wire UI & events
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const a = requireAuth(); if(!a) return;
+      renderHeader();
+      renderDashboard();
+
+      // calendar controls
+      document.getElementById('calPrev').addEventListener('click', ()=>{ viewDate.setMonth(viewDate.getMonth()-1); renderCalendar(); });
+      document.getElementById('calNext').addEventListener('click', ()=>{ viewDate.setMonth(viewDate.getMonth()+1); renderCalendar(); });
+
+      // quick actions
+      document.getElementById('quickOfferBtn').addEventListener('click', ()=> {
+        const d = prompt('Data da folga (YYYY-MM-DD):');
+        if(d) offerFolga(d);
+      });
+      document.getElementById('quickRequestBtn').addEventListener('click', ()=> {
+        const d = prompt('Data desejada (YYYY-MM-DD):');
+        const r = prompt('Motivo (opcional):');
+        if(d) createRequest(d, r);
+      });
+
+      document.getElementById('offerBtn').addEventListener('click', ()=> offerFolga(document.getElementById('offerDate').value));
+      document.getElementById('requestBtn')?.addEventListener('click', ()=> createRequest(document.getElementById('requestDate').value));
+      document.getElementById('quickOffer')?.addEventListener('click', ()=> offerFolga(document.getElementById('quickDate').value));
+      document.getElementById('quickRequest')?.addEventListener('click', ()=> createRequest(document.getElementById('quickDate').value));
+      document.getElementById('exportCsv')?.addEventListener('click', exportMyCSV);
+
+      // dashboard controls
+      document.getElementById('searchBtn').addEventListener('click', ()=> {
+        const q = document.getElementById('searchInput').value.trim().toLowerCase();
+        if(!q){ renderDashboard(); return; }
+        const offers = state.offers.filter(o => o.date.includes(q) || o.user.toLowerCase().includes(q));
+        const reqs = state.requests.filter(r => r.targetDate.includes(q) || r.fromUser.toLowerCase().includes(q));
+        let html = `<h3>Resultados para "${q}"</h3><div style="margin-top:8px">`;
+        if(offers.length){ html += '<strong>Ofertas</strong><div>'; offers.forEach(o => html += `<div style="padding:6px 0">${o.date} • ${o.user}</div>`); html += '</div>'; }
+        if(reqs.length){ html += '<strong style="margin-top:8px;display:block">Solicitações</strong><div>'; reqs.forEach(r => html += `<div style="padding:6px 0">${r.targetDate} • ${r.fromUser} • ${r.status}</div>`); html += '</div>'; }
+        if(!offers.length && !reqs.length) html += 'Nenhum resultado.';
+        html += `</div><div style="margin-top:12px;text-align:right"><button id="closeS" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html); dlg.querySelector('#closeS').addEventListener('click', closeModal);
+      });
+
+      // leaves filters / export
+      document.getElementById('filterLeavesBtn').addEventListener('click', ()=> renderMyLeaves());
+      document.getElementById('exportLeaves').addEventListener('click', ()=>{
+        // export filtered leaves
+        const a = requireAuth();
+        let items = state.offers.filter(o=> o.user === a.name);
+        const from = document.getElementById('leavesFrom').value; const to = document.getElementById('leavesTo').value;
+        if(from) items = items.filter(x=> x.date >= from); if(to) items = items.filter(x=> x.date <= to);
+        if(!items.length){ showToast('Nenhuma folga para exportar'); return; }
+        const keys = ['date','team','role'];
+        const lines = [keys.join(',')].concat(items.map(r => keys.map(k => `"${String(r[k]||'').replace(/"/g,'""')}"`).join(',')));
+        const csv = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob); const aEl = document.createElement('a'); aEl.href = url; aEl.download = `leaves_${nowISO()}.csv`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); URL.revokeObjectURL(url);
+      });
+
+      // requests controls
+      document.getElementById('createReqBtn2')?.addEventListener('click', ()=> {
+        const html = `<h3>Criar solicitação</h3><div style="margin-top:8px"><label class="small">Data desejada: <input id="newReqDate" type="date" /></label><label class="small" style="margin-top:8px">Motivo:<textarea id="newReqReason" rows="3" style="width:100%"></textarea></label></div><div style="margin-top:12px;text-align:right"><button id="saveNewReq" class="btn">Criar</button> <button id="closeNewReq" class="btn ghost">Fechar</button></div>`;
+        const dlg = openModal(html);
+        dlg.querySelector('#closeNewReq').addEventListener('click', closeModal);
+        dlg.querySelector('#saveNewReq').addEventListener('click', ()=> {
+          const d = dlg.querySelector('#newReqDate').value; const r = dlg.querySelector('#newReqReason').value;
+          createRequest(d, r); closeModal();
+        });
+      });
+
+      // requests search & sort
+      document.getElementById('requestSearch').addEventListener('input', ()=> renderMyRequests());
+      document.getElementById('requestSort').addEventListener('change', ()=> renderMyRequests());
+
+      // matches controls
+      document.getElementById('sortMatches')?.addEventListener('click', ()=> { matchesSortedAsc = !matchesSortedAsc; renderMatchesList(); });
+      document.getElementById('matchFilterTeam')?.addEventListener('change', ()=> renderMatchesList());
+      document.getElementById('acceptAllMatches')?.addEventListener('click', ()=> { showToast('Aceitar múltiplos (demo)'); });
+
+      // small actions
+      document.getElementById('exportOffers').addEventListener('click', ()=> {
+        const items = state.offers.slice().sort((a,b)=> a.date.localeCompare(b.date));
+        if(!items.length){ showToast('Nenhuma oferta para exportar'); return; }
+        const keys = ['date','user','team','role'];
+        const lines = [keys.join(',')].concat(items.map(r => keys.map(k => `"${String(r[k]||'').replace(/"/g,'""')}"`).join(',')));
+        const csv = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob); const aEl = document.createElement('a'); aEl.href = url; aEl.download = `offers_${nowISO()}.csv`; document.body.appendChild(aEl); aEl.click(); aEl.remove(); URL.revokeObjectURL(url);
+      });
+
+      // filters that affect calendar / lists
+      document.getElementById('teamFilter').addEventListener('change', ()=> { renderDashboard(); });
+      document.getElementById('filterStatus').addEventListener('change', ()=> { renderRequestsList(); });
+
+      // quick offer/request from rightbar
+      document.getElementById('quickOffer').addEventListener('click', ()=> offerFolga(document.getElementById('quickDate').value));
+      document.getElementById('quickRequest').addEventListener('click', ()=> createRequest(document.getElementById('quickDate').value));
+      document.getElementById('exportCsv').addEventListener('click', exportMyCSV);
+
+      // initial binds for nav already set in renderHeader
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TF — Painel Admin</title>
+  <style>
+    :root{--primary:#0A2E2A;--accent:#4CA15D;--bg:linear-gradient(180deg,#f3f7f6,#eef6f1);--card:#ffffff;--muted:#5b756d}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family: Arial, Helvetica, sans-serif;background:var(--bg);color:var(--primary);-webkit-font-smoothing:antialiased}
+    .topbar{height:68px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 22px;box-shadow:0 6px 22px rgba(6,34,28,0.12)}
+    .brand{font-weight:700}
+    .top-actions{display:flex;gap:12px;align-items:center}
+    .top-actions .small{color:rgba(255,255,255,0.9);font-weight:600}
+
+    /* layout */
+    .layout{display:grid;grid-template-columns:260px 1fr 340px;gap:18px;padding:18px}
+    .sidebar{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(6,34,28,0.06)}
+    .profile{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    .avatar{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7dd88c);display:flex;align-items:center;justify-content:center;color:#05221a;font-weight:800;font-size:18px}
+    .nav{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+    .nav button{background:transparent;border:0;padding:10px;border-radius:8px;text-align:left;cursor:pointer;color:var(--muted);font-weight:700}
+    .nav button:hover{background:rgba(76,161,93,0.06);color:var(--accent);transform:translateX(4px)}
+    .nav button.active{background:linear-gradient(90deg,rgba(76,161,93,0.12),rgba(76,161,93,0.06));color:var(--primary);box-shadow:inset 0 0 0 1px rgba(76,161,93,0.04)}
+
+    .panel{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 10px 30px rgba(6,34,28,0.04)}
+    .small{font-size:13px;color:var(--muted)}
+    .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--primary);color:#fff;cursor:pointer;font-weight:700}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid rgba(6,34,28,0.06)}
+    .btn.approve{background:var(--accent)}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #eef3f5;text-align:left;color:var(--primary)}
+
+    /* calendar */
+    .calendar-controls{display:flex;gap:8px;align-items:center}
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:12px}
+    .cell{background:linear-gradient(180deg,#fff,#fbfffc);border-radius:8px;padding:8px;min-height:84px;border:1px solid rgba(6,34,28,0.04);font-size:13px;color:#2b4a42}
+    .cell .date{font-weight:700;margin-bottom:6px;color:var(--primary)}
+    .approval-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:8px;border:1px solid rgba(6,34,28,0.04);margin-bottom:8px}
+
+    /* modal / toast */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:60}
+    .dialog{background:var(--card);padding:18px;border-radius:12px;min-width:320px;max-width:800px;box-shadow:0 24px 80px rgba(6,34,28,0.24)}
+    .toast{position:fixed;right:22px;bottom:22px;background:var(--primary);color:#eafff0;padding:10px 14px;border-radius:10px;box-shadow:0 10px 30px rgba(6,34,28,0.12);z-index:70}
+
+    @media (max-width:1100px){
+      .layout{grid-template-columns:1fr; padding:14px}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Sistema de Troca de Folgas — Admin</div>
+    <div class="top-actions">
+      <div class="small" id="headerUser">—</div>
+      <button id="logoutBtn" class="btn ghost">Sair</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- SIDEBAR / MENU -->
+    <aside class="sidebar" aria-label="Menu principal">
+      <div class="profile">
+        <div class="avatar" id="avatar">A</div>
+        <div>
+          <div id="adminName" style="font-weight:800">—</div>
+          <div class="small" id="adminRole">Administrador</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="mainNav" aria-label="Navegação">
+        <button class="active" data-view="panel-calendar">Calendário da Equipe</button>
+        <button data-view="panel-approvals">Aprovações</button>
+        <button data-view="panel-reports">Relatórios</button>
+        <button data-view="panel-settings">Configurações</button>
+      </nav>
+
+      <div class="filters">
+        <label class="small" for="teamFilter">Filtrar por Equipe</label>
+        <select id="teamFilter" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06);margin-top:6px">
+          <option value="all">Todas</option>
+          <option value="A">Equipe A</option>
+          <option value="B">Equipe B</option>
+        </select>
+
+        <div style="margin-top:12px">
+          <label class="small" for="searchName">Pesquisar por nome</label>
+          <input id="searchName" placeholder="ex.: Maria" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06);margin-top:6px" />
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main>
+      <!-- CALENDAR PANEL -->
+      <section id="panel-calendar" class="panel" aria-labelledby="calTitle">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 id="calTitle" style="margin:0">Calendário da Equipe</h3>
+            <div class="small">Clique em um dia para ver ofertas/solicitações e tomar ações.</div>
+          </div>
+          <div class="calendar-controls">
+            <button id="prevMonth" class="btn ghost">←</button>
+            <div id="monthLabel" style="font-weight:800;min-width:160px;text-align:center"></div>
+            <button id="nextMonth" class="btn ghost">→</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="approveAllBtn" class="btn approve">Aprovar todos</button>
+            <button id="rejectAllBtn" class="btn ghost">Rejeitar todos</button>
+            <button id="seedBtn" class="btn ghost">Resetar dados demo</button>
+            <button id="exportAllBtn" class="btn">Exportar tudo (CSV)</button>
+          </div>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid" aria-live="polite" style="margin-top:12px"></div>
+      </section>
+
+      <!-- APPROVALS PANEL (hidden by default) -->
+      <section id="panel-approvals" class="panel" style="display:none; margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 style="margin:0">Painel de Aprovações</h3>
+            <div class="small">Aprovar ou rejeitar solicitações pendentes.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="approveAllBtn2" class="btn approve">Aprovar todos</button>
+            <button id="rejectAllBtn2" class="btn ghost">Rejeitar todos</button>
+          </div>
+        </div>
+
+        <div id="approvalsList" style="margin-top:12px"></div>
+      </section>
+
+      <!-- REPORTS PANEL -->
+      <section id="panel-reports" class="panel" style="display:none; margin-top:12px">
+        <h3 style="margin:0 0 8px 0">Relatórios</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small">De: <input id="reportFrom" type="date" /></label>
+          <label class="small">Até: <input id="reportTo" type="date" /></label>
+          <label class="small">Equipe:
+            <select id="reportTeam">
+              <option value="all">Todas</option><option value="A">A</option><option value="B">B</option>
+            </select>
+          </label>
+          <button id="btnReportBuild" class="btn">Gerar</button>
+          <button id="btnReportExport" class="btn">Exportar CSV</button>
+        </div>
+        <div id="reportArea" style="margin-top:12px"></div>
+      </section>
+
+      <!-- SETTINGS PANEL -->
+      <section id="panel-settings" class="panel" style="display:none; margin-top:12px">
+        <h3 style="margin:0 0 8px 0">Configurações</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="small">Dias mínimos para aceitar troca</label>
+            <input id="minDays" type="number" min="0" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06)" />
+          </div>
+          <div>
+            <label class="small">Notificar por e-mail?</label>
+            <select id="notifyEmail" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06)">
+              <option value="yes">Sim</option><option value="no">Não</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button id="saveSettings" class="btn">Salvar</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- RIGHTBAR -->
+    <aside style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel" style="min-width:260px">
+        <h4 style="margin:0 0 8px 0">Resumo Rápido</h4>
+        <div id="summaryBox" class="small">Carregando...</div>
+      </div>
+
+      <div class="panel" style="min-width:260px">
+        <h4 style="margin:0 0 8px 0">Pesquisa rápida</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="quickName" placeholder="Nome" style="padding:8px;border-radius:8px;border:1px solid rgba(6,34,28,0.06)" />
+          <button id="searchBtn" class="btn ghost">Pesquisar</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- modal / toast containers -->
+  <div id="modalRoot" style="display:none"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script>
+  /* Admin JS (demo; usa localStorage). Baseado no seu admin original e integrado ao tema. Referência: arquivo original. :contentReference[oaicite:2]{index=2} */
+
+  const AUTH_KEY = 'tf_auth_v1';
+  const STORAGE_KEY = 'tf_data_v1';
+  const SETTINGS_KEY = 'tf_settings_v1';
+
+  function currentAuth(){ try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch(e){ return null; } }
+  function requireAdmin(){ const a = currentAuth(); if(!a || a.role !== 'admin'){ alert('Acesso negado — redirecionando ao login'); setTimeout(()=> location.href='login.html', 250); return false; } return true; }
+
+  // seed demo state if empty
+  function seedDemo(){
+    const demo = {
+      offers: [
+        {id:1,user:'Alex',date:'2025-11-05',team:'A',role:'Operador'},
+        {id:2,user:'Pedro',date:'2025-11-06',team:'B',role:'Operador'},
+        {id:3,user:'João',date:'2025-11-01',team:'B',role:'Operador'},
+        {id:4,user:'Ana',date:'2025-11-12',team:'A',role:'Operadora'}
+      ],
+      requests: [
+        {id:101,fromUser:'Maria',dateRequested:'2025-11-03',targetDate:'2025-11-12',status:'open',reason:'Conflito pessoal'},
+        {id:102,fromUser:'Rafael',dateRequested:'2025-11-08',targetDate:'2025-11-06',status:'open',reason:'Agendamento médico'},
+        {id:103,fromUser:'Alex',dateRequested:'2025-11-20',targetDate:'2025-12-15',status:'open',reason:'Viagem'}
+      ],
+      approved: [],
+      matches: [
+        {id:201,user:'João',date:'2025-11-05',team:'B',role:'Operador',score:98},
+        {id:202,user:'Ana',date:'2025-11-12',team:'A',role:'Operadora',score:86}
+      ]
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(demo));
+    return demo;
+  }
+  function loadState(){ try{ const r = localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); }catch(e){} return seedDemo(); }
+  function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+  // modal & toast helpers
+  function openModal(html){
+    const root = document.getElementById('modalRoot');
+    root.innerHTML = `<div class="modal-backdrop"><div class="dialog">${html}</div></div>`;
+    root.style.display = 'block';
+    root.querySelector('.modal-backdrop').addEventListener('click', (e)=>{ if(e.target === e.currentTarget) closeModal(); });
+  }
+  function closeModal(){ const root=document.getElementById('modalRoot'); root.style.display='none'; root.innerHTML=''; }
+  function showToast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=> t.remove(),3000); }
+
+  // calendar rendering (month view)
+  let state = loadState();
+  let viewDate = new Date();
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function formatMonth(dt){ return dt.toLocaleString('pt-BR',{month:'long', year:'numeric'}); }
+
+  function renderCalendar(){
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    const year = viewDate.getFullYear(), month = viewDate.getMonth();
+    document.getElementById('monthLabel').textContent = formatMonth(viewDate);
+    const firstDay = new Date(year, month, 1);
+    const startWeekDay = firstDay.getDay();
+    const days = new Date(year, month+1, 0).getDate();
+    // blanks
+    for(let i=0;i<startWeekDay;i++){ const e=document.createElement('div'); e.className='cell'; grid.appendChild(e); }
+    const teamFilter = document.getElementById('teamFilter')?.value || 'all';
+    const searchName = (document.getElementById('searchName')?.value || '').toLowerCase().trim();
+
+    for(let d=1; d<=days; d++){
+      const dateStr = `${year}-${pad(month+1)}-${pad(d)}`;
+      const cell = document.createElement('div'); cell.className='cell'; cell.tabIndex = 0;
+      const dateLabel = document.createElement('div'); dateLabel.className='date'; dateLabel.textContent = d;
+      cell.appendChild(dateLabel);
+
+      // gather offers/requests for that date (apply filters)
+      const offers = state.offers.filter(o => o.date === dateStr && (teamFilter==='all' || o.team===teamFilter) && (!searchName || o.user.toLowerCase().includes(searchName)));
+      const reqs = state.requests.filter(r => r.targetDate === dateStr && (!searchName || r.fromUser.toLowerCase().includes(searchName)));
+
+      offers.slice(0,3).forEach(o => {
+        const el = document.createElement('div'); el.style.fontSize='12px'; el.textContent = `O: ${o.user} • ${o.team}`; cell.appendChild(el);
+      });
+      reqs.slice(0,3).forEach(r => {
+        const el = document.createElement('div'); el.style.fontSize='12px'; el.textContent = `R: ${r.fromUser} • ${r.status}`; cell.appendChild(el);
+      });
+
+      cell.addEventListener('click', ()=> openDayModal(dateStr));
+      grid.appendChild(cell);
+    }
+  }
+
+  function openDayModal(dateStr){
+    let html = `<h3>Detalhes — ${dateStr}</h3><div style="margin-top:8px">`;
+    const offers = state.offers.filter(o => o.date === dateStr);
+    const reqs = state.requests.filter(r => r.targetDate === dateStr);
+    if(offers.length){
+      html += `<strong>Ofertas</strong><div style="margin-top:6px">`;
+      offers.forEach(o => html += `<div style="padding:6px 0">${o.user} — ${o.team} — ${o.role}</div>`);
+      html += `</div>`;
+    }
+    if(reqs.length){
+      html += `<strong style="margin-top:8px;display:block">Solicitações</strong><div style="margin-top:6px">`;
+      reqs.forEach(r => html += `<div style="padding:6px 0">${r.fromUser} — ${r.status} ${r.reason ? '• ' + r.reason : ''} <div style="margin-top:6px"><button class="btn approve" data-id="${r.id}">Aprovar</button> <button class="btn ghost" data-id="${r.id}">Rejeitar</button></div></div>`);
+      html += `</div>`;
+    }
+    if(!offers.length && !reqs.length) html += 'Nenhuma atividade neste dia.';
+    html += `</div><div style="margin-top:12px;text-align:right"><button id="closeModal" class="btn ghost">Fechar</button></div>`;
+    openModal(html);
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    // wire approve/reject
+    document.querySelectorAll('.dialog .btn.approve').forEach(b => b.addEventListener('click', (e)=> {
+      const id = Number(e.currentTarget.getAttribute('data-id')); approveRequest(id); closeModal();
+    }));
+    document.querySelectorAll('.dialog .btn.ghost').forEach(b => b.addEventListener('click', (e)=> {
+      const id = Number(e.currentTarget.getAttribute('data-id')); rejectRequest(id, 'Rejeitado pelo admin'); closeModal();
+    }));
+  }
+
+  // approvals list
+  function renderApprovals(){
+    const container = document.getElementById('approvalsList');
+    container.innerHTML = '';
+    const pendings = state.requests.filter(r => r.status === 'open');
+    if(!pendings.length){ container.innerHTML = '<div class="small">Nenhuma pendência</div>'; return; }
+    pendings.forEach(p => {
+      const item = document.createElement('div'); item.className='approval-item';
+      item.innerHTML = `<div><strong>${p.fromUser}</strong><div class="small">${p.dateRequested} → ${p.targetDate}</div><div class="small" style="margin-top:6px">${p.reason || ''}</div></div>
+        <div style="display:flex;gap:8px"><button class="btn approve" data-id="${p.id}">Aprovar</button><button class="btn ghost" data-id="${p.id}">Rejeitar</button></div>`;
+      container.appendChild(item);
+    });
+    container.querySelectorAll('.btn.approve').forEach(b => b.addEventListener('click', (e)=> approveRequest(Number(e.currentTarget.dataset.id))));
+    container.querySelectorAll('.btn.ghost').forEach(b => b.addEventListener('click', (e)=> rejectRequest(Number(e.currentTarget.dataset.id), 'Rejeitado pelo admin')));
+  }
+
+  function approveRequest(id){
+    const idx = state.requests.findIndex(r => r.id === id); if(idx<0){ showToast('Solicitação não encontrada'); return; }
+    state.requests[idx].status = 'approved'; state.approved.push(state.requests[idx]); saveState(state); renderApprovals(); renderCalendar(); renderSummary(); showToast('Solicitação aprovada');
+  }
+  function rejectRequest(id, reason){
+    const idx = state.requests.findIndex(r => r.id === id); if(idx<0){ showToast('Solicitação não encontrada'); return; }
+    state.requests[idx].status = 'rejected'; state.requests[idx].rejectionReason = reason || ''; saveState(state); renderApprovals(); renderCalendar(); renderSummary(); showToast('Solicitação rejeitada');
+  }
+
+  // reports
+  function buildReport(){
+    const from = document.getElementById('reportFrom').value;
+    const to = document.getElementById('reportTo').value;
+    const team = document.getElementById('reportTeam').value;
+    const rows = [];
+    state.offers.forEach(o => {
+      if(team!=='all' && o.team!==team) return;
+      if(from && o.date < from) return;
+      if(to && o.date > to) return;
+      rows.push({type:'offer', user:o.user, date:o.date, team:o.team, role:o.role, status:''});
+    });
+    state.requests.forEach(r => {
+      if(from && r.targetDate < from) return;
+      if(to && r.targetDate > to) return;
+      rows.push({type:'request', user:r.fromUser, date:r.targetDate, team:'', role:'', status:r.status});
+    });
+    return rows;
+  }
+  function generateCSV(rows, filename='report.csv'){
+    if(!rows || !rows.length){ alert('Nenhum registro para exportar'); return; }
+    const sep = ',';
+    const keys = Object.keys(rows[0] || {});
+    const lines = [keys.join(sep)].concat(rows.map(r => keys.map(k => `"${String(r[k]||'').replace(/"/g,'""')}"`).join(sep)));
+    const csvBody = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvBody], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  }
+
+  // summary
+  function renderSummary(){
+    const offers = state.offers.length;
+    const requests = state.requests.length;
+    const approved = state.approved.length;
+    document.getElementById('summaryBox').textContent = `Ofertas: ${offers} • Solicitações: ${requests} • Aprovadas: ${approved}`;
+  }
+
+  // settings
+  function loadSettings(){
+    try{ const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); if(s){ document.getElementById('minDays').value = s.minDays || 3; document.getElementById('notifyEmail').value = s.notifyEmail || 'yes'; } }catch(e){}
+  }
+  function saveSettings(){ const obj = {minDays: Number(document.getElementById('minDays').value || 3), notifyEmail: document.getElementById('notifyEmail').value}; localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj)); showToast('Configurações salvas'); }
+
+  // ui wiring
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if(!requireAdmin()) return;
+    // header user
+    const a = currentAuth(); document.getElementById('headerUser').textContent = a ? a.name : '—'; document.getElementById('adminName').textContent = a ? a.name : 'Admin'; document.getElementById('avatar').textContent = (a && a.name)? a.name[0].toUpperCase() : 'A';
+    // nav wiring
+    document.querySelectorAll('#mainNav button').forEach(b => b.addEventListener('click', (e)=>{
+      document.querySelectorAll('#mainNav button').forEach(x=>x.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      const view = e.currentTarget.getAttribute('data-view');
+      document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+      document.getElementById(view).style.display = 'block';
+    }));
+    // month controls
+    document.getElementById('prevMonth').addEventListener('click', ()=>{ viewDate.setMonth(viewDate.getMonth()-1); renderCalendar(); });
+    document.getElementById('nextMonth').addEventListener('click', ()=>{ viewDate.setMonth(viewDate.getMonth()+1); renderCalendar(); });
+    // actions
+    document.getElementById('approveAllBtn').addEventListener('click', ()=>{ state.requests.filter(r=>r.status==='open').forEach(r=> r.status='approved', state.approved.push(r)); saveState(state); renderApprovals(); renderCalendar(); renderSummary(); showToast('Todas aprovadas'); });
+    document.getElementById('rejectAllBtn').addEventListener('click', ()=>{ state.requests.filter(r=>r.status==='open').forEach(r=> r.status='rejected'); saveState(state); renderApprovals(); renderCalendar(); renderSummary(); showToast('Todas rejeitadas'); });
+    document.getElementById('approveAllBtn2').addEventListener('click', ()=>document.getElementById('approveAllBtn').click());
+    document.getElementById('rejectAllBtn2').addEventListener('click', ()=>document.getElementById('rejectAllBtn').click());
+    document.getElementById('seedBtn').addEventListener('click', ()=>{ if(confirm('Resetar dados demo?')){ state = seedDemo(); renderCalendar(); renderApprovals(); renderSummary(); }});
+    document.getElementById('exportAllBtn').addEventListener('click', ()=> generateCSV(buildReport(), `tf_export_all_${(new Date()).toISOString().slice(0,10)}.csv`));
+    document.getElementById('btnReportBuild').addEventListener('click', ()=>{ const rows = buildReport(); const area = document.getElementById('reportArea'); area.innerHTML=''; if(!rows.length){ area.innerHTML = '<div class="small">Nenhum resultado</div>'; return; } const t=document.createElement('table'); t.innerHTML = '<thead><tr><th>Tipo</th><th>Usuário</th><th>Data</th><th>Equipe</th><th>Status</th></tr></thead>'; const tb=document.createElement('tbody'); rows.forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.type}</td><td>${r.user}</td><td>${r.date}</td><td>${r.team||'-'}</td><td>${r.status||''}</td>`; tb.appendChild(tr); }); t.appendChild(tb); area.appendChild(t); });
+    document.getElementById('btnReportExport').addEventListener('click', ()=> generateCSV(buildReport(), `tf_report_${(new Date()).toISOString().slice(0,10)}.csv`));
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    document.getElementById('logoutBtn').addEventListener('click', ()=>{ localStorage.removeItem(AUTH_KEY); location.href='login.html'; });
+
+    // initial render
+    renderCalendar(); renderApprovals(); renderSummary(); loadSettings();
+  });
+  </script>
+</body>
+</html>
